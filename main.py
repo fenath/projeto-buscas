@@ -1,12 +1,12 @@
 from __future__ import annotations
-from mapa import MAPA, FRONTEIRAS
+from typing import Callable
+from mapa import MAPA, FRONTEIRAS, CUSTOS
 
 
 class Node():
     def __init__(self, _name: str):
         self.name: str = _name
-        self.connections: list[Node] = []
-        self.costs: list[int] = []
+        self.connections: list[tuple[Node, int]] = []
 
     def add_connection(self, conn_name: str, cost: int) -> Node:
         conn = self.get_connection_by_name(conn_name)
@@ -16,31 +16,48 @@ class Node():
             
         conn = Node(conn_name)
         
-        self.add_connection_node(conn)
-        self.add_cost(cost)
-        conn.add_connection_node(self)
-        conn.add_cost(cost)
+        self.add_connection_node(conn, cost)
+        conn.add_connection_node(self, cost)
         return conn
         
-    def add_connection_node(self, conn_node: Node):
+    def add_connection_node(self, conn_node: Node, cost: int) -> None:
         if conn_node in self.get_children():
             return
-        self.connections.append(conn_node)
+        self.connections.append((conn_node, cost))
         
-    def add_cost(self, cost: int):
-        self.costs.append(cost)
-    
     def get_connection_by_name(self, conn_name: str)\
              -> Node | None:
-        result = filter(lambda n: n.name == conn_name, self.connections)
-        return next(result, None)
+        result = filter(lambda n: n[0].name == conn_name, self.connections)
+        result = next(result, None)
+        if result:
+            return result[0]
+        return None
     
     def get_children(self) -> list[Node]:
-        return self.connections
+        return [conn[0] for conn in self.connections]
         
     def get_costs(self) -> list[int]:
-        return self.costs
-        
+        return [conn[1] for conn in self.connections]
+
+    def get_cost(self, conn: Node) -> int | None:
+        result = filter(lambda n: n[0] == conn, self.connections)
+        result = next(result, None)
+        if result:
+            return result[1]
+        return None
+
+    def get_connection_cost(self, conn_name: str) -> int | None:
+        result = filter(lambda n: n[0].name == conn_name, self.connections)
+        result = next(result, None)
+        if result:
+            return result[1]
+        return None
+
+    def __repr__(self) -> str:
+        return f'Node({self.name})'
+
+    def __str__(self) -> str:
+        return f'Node({self.name})'
 
 def get_capital(uf: str) -> str:
     linha = list(filter(lambda n: n[2] == uf, (l for l in MAPA)))[0]
@@ -62,8 +79,58 @@ def get_capitais_fronteiras(capital: str) -> list[str]:
         capitais.append(get_capital(f))
     return capitais
 
+def g_func(rota: list[Node]) -> int:
+    custo = 0
+    for i in range(len(rota) - 1):
+        c = rota[i].get_cost(rota[i + 1])
+        if c:
+            custo += c
+    return custo
+
 def a_star(mapa: list[Node], source: Node, dest: Node):
-    pass
+    """
+    Busca usando método A*
+    retorna o trajeto (se houver) e o custo para o trajeto
+
+    - source: nó de origem
+    - dest: nó de destino
+    - mapa: lista de nós 
+        (dá para perceber que acabamos não usando o mapa porque os próprios 
+        nodes já possuem conexões)
+    """
+
+    visitados: set[Node] = set() # Usando set pois não coloca duplicados
+
+    # Heurística, h(n), deixando possibilidade de usar diferentes heurísticas
+    h_func = heuristica
+    # Custo do caminho g(n)
+    # Proximos filhos precisam armazenar a rota traçada
+    next_children: list[tuple[Node, list[Node]]] = []
+
+    while next_children:
+        child, trajeto = next_children.pop(0)
+
+        if child in visitados:
+            continue
+
+        visitados.add(child)
+        rota_atual = trajeto + [child]
+        if child == dest:
+            # chegou no destino
+            custo = g_func(rota_atual)
+            for t in rota_atual:
+                custo += heuristica(mapa, t, dest)
+            return rota_atual, custo
+
+        children = child.get_children()
+        # Adiciona filhos ao fim da lista
+        next_children += [
+            (conn, rota_atual) for conn in children
+        ]
+    # Se não achou o destino
+    # print(f'Não achou o destino {dest.name} a partir de {source.name}')
+    # print(f'Visitados: {[n.name for n in visitados]}')
+    return ([], 0) # Destino não encontrado
 
 def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], int]:
     """
@@ -76,7 +143,7 @@ def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], in
         (dá para perceber que acabamos não usando o mapa porque os próprios 
         nodes já possuem conexões)
     """
-    print(f'Algoritmo de largura de {source.name} para {dest.name}')
+    # print(f'Algoritmo de largura de {source.name} para {dest.name}')
     # Proximos filhos precisam armazenar a rota traçada
     next_children: list[tuple[Node, list[Node]]] = []
     visitados: list[Node] = []
@@ -102,7 +169,7 @@ def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], in
 
         if child == dest:
             # chegou no destino
-            custo = len(rota_atual)
+            custo = g_func(rota_atual)
             # print(f'Completou viagem de {source.name} a {dest.name}')
             # print(f'Trajeto: {[n.name for n in rota_atual]}')
             # print(f'Custo: {custo}')
@@ -124,8 +191,8 @@ def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], in
 def profundidade(mapa: list[Node], source: Node, dest: Node):
     pass
 
-def heuristica(mapa, source, dest): 
-    pass
+def heuristica(mapa, source, dest) -> int:
+    return 0
 
 def get_cidade(mapa: list[Node], name: str) -> Node | None:
     linha = list(filter(lambda n: n.name == name, mapa))
@@ -137,8 +204,8 @@ def get_cidade(mapa: list[Node], name: str) -> Node | None:
 def create_mapa() -> list[Node]:
     mapa: list[Node] = []
 
-    def conectar_cidades(cidade1: Node, cidade2: Node) -> None:
-        cidade1.add_connection_node(cidade2)
+    def conectar_cidades(cidade1: Node, cidade2: Node, custo: int = 0) -> None:
+        cidade1.add_connection_node(cidade2, custo)
         # Como cidades serao unidirecionais
         # cidade2.add_connection_node(cidade1)
 
@@ -146,14 +213,19 @@ def create_mapa() -> list[Node]:
         cidade = Node(linha[0])
         mapa.append(cidade)
 
+    def get_custos(uf: str) -> list[int]:
+        return CUSTOS.get(uf, [])
+
     for cidade in mapa:
         uf = next(filter(lambda linha: linha[0] == cidade.name, MAPA))[2]
         capital = get_capital(uf)
         fronteiras = get_capitais_fronteiras(capital)
-        for f in fronteiras:
-            f_node = get_cidade(mapa, f)
+        custos = get_custos(uf)
+        
+        for front, custo in zip(fronteiras, custos):
+            f_node = get_cidade(mapa, front)
             if f_node:
-                conectar_cidades(cidade, f_node)
+                conectar_cidades(cidade, f_node, custo)
 
     return mapa
 
@@ -177,15 +249,16 @@ def select_in(msg: str, opcoes: list[str]) -> int:
     return o - 1
 
 def print_trajeto(trajeto: list[Node], custo: int = 0) -> None:
-    print(f'Viagem de {trajeto[0].name} a {trajeto[-1].name}')
+    if trajeto:
+        print(f'Viagem de {trajeto[0].name} a {trajeto[-1].name}')
     print('Trajeto: {}'.format('->'.join([n.name for n in trajeto])))
     print('Custo: {}'.format(custo))
     return None
 
-def main() -> None:
-    mapa = create_mapa()
+mapa = create_mapa()
+capitais = [l[0] for l in MAPA]
 
-    capitais = [l[0] for l in MAPA]
+def main() -> None:
     i = select_in('Origem', capitais)
     source = get_cidade(mapa, capitais[i])
     if not source:
@@ -209,7 +282,9 @@ def main() -> None:
     print('-----------------')
     
     print('-----------------')
-    print('Profundidade')
+    print('A Star')
+    trajeto, custo = a_star(mapa, source, dest)
+    print_trajeto(trajeto, custo)
     print('-----------------')
 
 if __name__ == '__main__':

@@ -1,0 +1,5 @@
+
+[project]
+name = "busca_ia"
+version = "0.1.0"
+description = "A simple search engine"

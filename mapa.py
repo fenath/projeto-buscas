@@ -32,7 +32,7 @@ MAPA = [
 FRONTEIRAS = {
     'AC': ['AM', 'RO'],
     'AL': ['BA', 'PE', 'SE'],
-    'AM': ['AC', 'PA', 'RO', 'RR',],# 'MT'],
+    'AM': ['AC', 'PA', 'RO', 'RR', 'MT'],
     'AP': ['PA'],
     'BA': ['AL', 'GO', 'MG', 'ES', 'PE', 'PI', 'TO', 'SE'],
     'CE': ['RN', 'PI', 'PB', 'PE'],
@@ -50,13 +50,43 @@ FRONTEIRAS = {
     'PR': ['SC', 'SP', 'MS'],
     'RJ': ['ES', 'MG', 'SP'],
     'RN': ['PB', 'CE'],
-    'RO': ['AM', 'AC', 'MT'],# , 'PA'],
+    'RO': ['AM', 'AC', 'MT', 'PA'],
     'RR': ['AM'],
     'RS': ['SC'],
     'SC': ['PR', 'RS'],
     'SE': ['AL', 'BA'],
     'SP': ['MG', 'RJ', 'PR', 'MS'],
     'TO': ['MA', 'PI', 'BA', 'GO', 'MT', 'PA']
+}
+
+BELEZAS = {
+    'AC': 3,  
+    'AL': 6,  
+    'AM': 6,  
+    'AP': 3,  
+    'BA': 8,  
+    'CE': 7,  
+    'DF': 8,  
+    'ES': 7,  
+    'GO': 5,  
+    'MA': 5,  
+    'MG': 7,  
+    'MS': 4,  
+    'MT': 4,  
+    'PA': 5,  
+    'PB': 6,  
+    'PE': 8,  
+    'PI': 4,  
+    'PR': 9,  
+    'RJ': 10, 
+    'RN': 6,  
+    'RO': 3,  
+    'RR': 3,  
+    'RS': 8,  
+    'SC': 9,  
+    'SE': 5,  
+    'SP': 8,  
+    'TO': 4,  
 }
 
 CUSTOS = { # TODO: Adicionar custos

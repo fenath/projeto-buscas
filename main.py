@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import Callable
-from mapa import MAPA, FRONTEIRAS, CUSTOS
+from typing import override
+from mapa import BELEZAS, MAPA, FRONTEIRAS, CUSTOS
 
 
 class Node():
@@ -53,9 +53,11 @@ class Node():
             return result[1]
         return None
 
+    @override
     def __repr__(self) -> str:
         return f'Node({self.name})'
 
+    @override
     def __str__(self) -> str:
         return f'Node({self.name})'
 
@@ -87,7 +89,20 @@ def g_func(rota: list[Node]) -> int:
             custo += c
     return custo
 
-def a_star(mapa: list[Node], source: Node, dest: Node):
+def get_beleza(capital: Node) -> int:
+    linha = list(filter(lambda n: n[0] == capital.name, (l for l in MAPA)))
+    uf: str = linha[0][2] 
+    beleza = BELEZAS[uf]
+    return beleza
+
+def h_func(trajeto: list[Node]) -> int:
+    """Heurística: penaliza caminhos que passam por cidades menos belas"""
+    if not trajeto:
+        return 0
+    ultima = trajeto[-1]
+    return 10 - get_beleza(ultima)  # Quanto mais bela, menor a heurística
+
+def a_star(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], int]:
     """
     Busca usando método A*
     retorna o trajeto (se houver) e o custo para o trajeto
@@ -99,15 +114,23 @@ def a_star(mapa: list[Node], source: Node, dest: Node):
         nodes já possuem conexões)
     """
 
-    visitados: set[Node] = set() # Usando set pois não coloca duplicados
-
-    # Heurística, h(n), deixando possibilidade de usar diferentes heurísticas
-    h_func = heuristica
-    # Custo do caminho g(n)
-    # Proximos filhos precisam armazenar a rota traçada
+    # armazenar os próximos a fazer consulta
     next_children: list[tuple[Node, list[Node]]] = []
+    visitados: set[Node] = set() # Usando set pois não armazena duplicados
+
+    # Populando primeiro
+    next_children.append((source, []))
 
     while next_children:
+        def soma_g_h_func(key: tuple[Node, list[Node]]) -> int:
+            # g(n) + h(n)
+            _atual, trajeto = key
+            return g_func(trajeto) + h_func(trajeto)
+
+        # Ordena pela soma do custo atual e heurística
+        next_children.sort(key=soma_g_h_func)
+
+        # Pega o nó com menor custo total estimado
         child, trajeto = next_children.pop(0)
 
         if child in visitados:
@@ -117,19 +140,13 @@ def a_star(mapa: list[Node], source: Node, dest: Node):
         rota_atual = trajeto + [child]
         if child == dest:
             # chegou no destino
-            custo = g_func(rota_atual)
-            for t in rota_atual:
-                custo += heuristica(mapa, t, dest)
-            return rota_atual, custo
+            return rota_atual, g_func(rota_atual)
 
         children = child.get_children()
         # Adiciona filhos ao fim da lista
-        next_children += [
-            (conn, rota_atual) for conn in children
-        ]
+        next_children += [(conn, rota_atual) for conn in children]
+
     # Se não achou o destino
-    # print(f'Não achou o destino {dest.name} a partir de {source.name}')
-    # print(f'Visitados: {[n.name for n in visitados]}')
     return ([], 0) # Destino não encontrado
 
 def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], int]:
@@ -166,7 +183,6 @@ def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], in
         visitados.append(child)
         rota_atual = trajeto + [child]
 
-
         if child == dest:
             # chegou no destino
             custo = g_func(rota_atual)
@@ -188,11 +204,8 @@ def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], in
     return ([], 0) # Destino não encontrado
         
     
-def profundidade(mapa: list[Node], source: Node, dest: Node):
+def profundidade(_mapa: list[Node], _source: Node, _dest: Node):
     pass
-
-def heuristica(mapa, source, dest) -> int:
-    return 0
 
 def get_cidade(mapa: list[Node], name: str) -> Node | None:
     linha = list(filter(lambda n: n.name == name, mapa))

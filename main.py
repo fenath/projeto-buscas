@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import override
-from mapa import BELEZAS, MAPA, FRONTEIRAS, CUSTOS
+from typing import Callable, override
+from mapa import BELEZAS, MAPA, FRONTEIRAS, CUSTOS, get_uf_by_cidade, get_cidade_by_uf, get_distancia_aerea
 
+DESTINO_NAO_ENCONTRADO: tuple[list[Node], int] = ([], 0)
 
 class Node():
     def __init__(self, _name: str):
@@ -95,14 +96,27 @@ def get_beleza(capital: Node) -> int:
     beleza = BELEZAS[uf]
     return beleza
 
-def h_func(trajeto: list[Node]) -> int:
+def h_func_beleza(trajeto: list[Node], destino: Node) -> int:
     """Heurística: penaliza caminhos que passam por cidades menos belas"""
     if not trajeto:
         return 0
     ultima = trajeto[-1]
     return 10 - get_beleza(ultima)  # Quanto mais bela, menor a heurística
 
-def a_star(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], int]:
+def h_func_distancia_aerea(trajeto: list[Node], destino: Node) -> int:
+    if not trajeto: 
+        return 0
+
+    ultima = trajeto[-1]
+
+    uf_destino = str(get_uf_by_cidade(destino.name))
+    uf_ultima = str(get_uf_by_cidade(ultima.name))
+
+    cust = int(get_distancia_aerea(uf_ultima, uf_destino))
+    return cust
+
+
+def a_star(_mapa: list[Node], source: Node, dest: Node, h_func: Callable[[list[Node], Node], int] = h_func_beleza) -> tuple[list[Node], int]:
     """
     Busca usando método A*
     retorna o trajeto (se houver) e o custo para o trajeto
@@ -125,10 +139,13 @@ def a_star(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], int
         def soma_g_h_func(key: tuple[Node, list[Node]]) -> int:
             # g(n) + h(n)
             _atual, trajeto = key
-            return g_func(trajeto) + h_func(trajeto)
+            return g_func(trajeto) + h_func(trajeto + [_atual], dest)
 
         # Ordena pela soma do custo atual e heurística
         next_children.sort(key=soma_g_h_func)
+        proximos_5 = next_children[:5]
+        #print('Proximos:')
+        #print('\n'.join([f'{soma_g_h_func(n):3} - {n[0].name}' for n in proximos_5]))
 
         # Pega o nó com menor custo total estimado
         child, trajeto = next_children.pop(0)
@@ -147,7 +164,7 @@ def a_star(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], int
         next_children += [(conn, rota_atual) for conn in children]
 
     # Se não achou o destino
-    return ([], 0) # Destino não encontrado
+    return DESTINO_NAO_ENCONTRADO
 
 def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], int]:
     """
@@ -201,11 +218,46 @@ def largura(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], in
             (conn, rota_atual) for conn in children
         ]
     
-    return ([], 0) # Destino não encontrado
+    return DESTINO_NAO_ENCONTRADO
         
     
-def profundidade(_mapa: list[Node], _source: Node, _dest: Node):
-    pass
+def profundidade(_mapa: list[Node], source: Node, dest: Node) -> tuple[list[Node], int]:
+    """
+    Busca em profundidade
+    retorna o trajeto (se houver) e o custo para o trajeto
+
+    - source: nó de origem
+    - dest: nó de destino
+    - mapa: lista de nós 
+    """
+    print(f'Algoritmo de profundidade de {source.name} para {dest.name}')
+    next_children: list[tuple[Node, list[Node]]] = []
+    visitados: list[Node] = []
+
+    next_children.append((source, []))
+
+    while next_children:
+        # Pega o último nó adicionado
+        atual, trajeto = next_children.pop()
+
+        if atual in visitados:
+            continue
+
+        visitados.append(atual)
+        rota_atual = trajeto + [atual]
+
+        if atual == dest:
+            custo = g_func(rota_atual)
+            return rota_atual, custo
+
+        children = atual.get_children()
+
+        # Como é pilha, adicionamos no final (últimos filhos serão explorados primeiro)
+        next_children += [(filho, rota_atual) for filho in children if filho not in visitados]
+
+    print('Destino não encontrado.')
+    return DESTINO_NAO_ENCONTRADO
+
 
 def get_cidade(mapa: list[Node], name: str) -> Node | None:
     linha = list(filter(lambda n: n.name == name, mapa))
@@ -264,7 +316,8 @@ def select_in(msg: str, opcoes: list[str]) -> int:
 def print_trajeto(trajeto: list[Node], custo: int = 0) -> None:
     if trajeto:
         print(f'Viagem de {trajeto[0].name} a {trajeto[-1].name}')
-    print('Trajeto: {}'.format('->'.join([n.name for n in trajeto])))
+    cidades_uf = [f'{n.name}({get_uf_by_cidade(n.name)})' for n in trajeto]
+    print('Trajeto: {}'.format('->'.join(cidades_uf)))
     print('Custo: {}'.format(custo))
     return None
 
@@ -283,20 +336,28 @@ def main() -> None:
         raise ValueError('Destino mal informado')
     
     
-    print('-----------------')
+    print('\n-----------------')
     print('Largura')
     print('-----------------')
-
     trajeto, custo = largura(mapa, source, dest)
     print_trajeto(trajeto, custo)
-    
     print('-----------------')
+    
+    print('\n-----------------')
     print('Profundidade')
+    trajeto, custo = profundidade(mapa, source, dest)
+    print_trajeto(trajeto, custo)
     print('-----------------')
     
-    print('-----------------')
+    print('\n-----------------')
     print('A Star')
     trajeto, custo = a_star(mapa, source, dest)
+    print_trajeto(trajeto, custo)
+    print('-----------------')
+
+    print('\n-----------------')
+    print('A Star (distancia aerea)')
+    trajeto, custo = a_star(mapa, source, dest, h_func_distancia_aerea)
     print_trajeto(trajeto, custo)
     print('-----------------')
 
